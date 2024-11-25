@@ -7,20 +7,20 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id',
-                 'username',
-                 'email',
-                 'password',
-                 'birth_date',
-                 'can_be_contacted',
-                 'can_data_be_shared',
-                 ]
-        extra_kargs = {
+                  'username',
+                  'email',
+                  'password',
+                  'birth_date',
+                  'can_be_contacted',
+                  'can_data_be_shared',
+                  ]
+        extra_kwargs = {
             'password': {'write_only': True}
         }
-    def validate_age(self, value):
+    def validate_birth_date(self, value):
         if value:
             today = date.today()
-            age = today.year - value.year -((today.month, today.day) < (value.month, value.day))
+            age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
         if age < 15:
             raise serializers.ValidationError("L'âge doit être supérieur ou égal à 15 ans.")
         return value
