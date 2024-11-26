@@ -1,16 +1,11 @@
 from django.contrib import admin
-from rest_framework import routers
 from django.urls import path, include
-from users.views import UserViewSet
-from projects.views import ProjectViewSet
 
-
-router = routers.SimpleRouter()
-router.register('users', UserViewSet, basename='user')
-router.register('projects', ProjectViewSet, basename='project')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),
-    path('api/',include(router.urls))
+    path('api/users/', include('users.urls')),  # Routes pour les utilisateurs
+    path('api/projects/', include('projects.urls')),  # Routes pour les projets et contributeurs
+    path('api/issue/', include('issues_and_comments.urls')), # Routes pour les issues et commentaires
 ]
