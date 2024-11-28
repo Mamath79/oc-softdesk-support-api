@@ -5,9 +5,9 @@ from users.views import UserViewSet
 
 
 router = routers.SimpleRouter()
-router.register('users', UserViewSet, basename='user')
+router.register('', UserViewSet, basename='user')
 
 
 urlpatterns = [
-    path('api/',include(router.urls))
+    path('',include(router.urls))
 ]

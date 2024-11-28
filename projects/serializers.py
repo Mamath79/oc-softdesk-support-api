@@ -25,10 +25,13 @@ class ProjectSerializer(serializers.ModelSerializer):
         return project
 
 class ContributorSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)  # Ajoute le champ username
+
     class Meta:
         model = Contributor
         fields = ['id',
                   'user',
+                  'username',
                   'project',
                   'role',
                   'date_created',

@@ -2,22 +2,24 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from issues_and_comments.models import Issue, Comment
 from issues_and_comments.serializers import IssueSerializer, CommentSerializer
-from projects.models import Project
+from projects.models import Project, Contributor
 
 
 class IssueViewSet(viewsets.ModelViewSet):
-    """
-    Gère les opérations CRUD pour les issues.
-    """
     serializer_class = IssueSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Limite les issues visibles à celles des projets auxquels l'utilisateur est contributeur.
-        """
-        user = self.request.user
-        return Issue.objects.filter(project__contributors=user)
+        project_id = self.kwargs.get('project_id')
+
+        # Filtrer sur les contributeurs et l'auteur directement
+        return Issue.objects.filter(
+            project_id=project_id,
+            project__contributors__user=self.request.user
+        ) | Issue.objects.filter(
+            project_id=project_id,
+            project__author=self.request.user
+        )
 
     def perform_create(self, serializer):
         """
@@ -40,7 +42,11 @@ class CommentViewSet(viewsets.ModelViewSet):
         Limite les commentaires visibles aux issues accessibles par l'utilisateur connecté.
         """
         user = self.request.user
-        return Comment.objects.filter(issue__project__contributors=user)
+        return Comment.objects.filter(
+            issue__project__contributors__user=user
+        ) | Comment.objects.filter(
+            issue__project__author=user
+        )
 
     def perform_create(self, serializer):
         """

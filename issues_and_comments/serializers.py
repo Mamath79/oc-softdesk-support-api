@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from issues_and_comments.models import Issue, Comment
 from users.models import User
-from projects.models import Project
+from projects.models import Project, Contributor
+from django.shortcuts import get_object_or_404
 
 
 class IssueSerializer(serializers.ModelSerializer):
@@ -26,11 +27,11 @@ class IssueSerializer(serializers.ModelSerializer):
         """
         Vérifie que l'utilisateur assigné est un contributeur du projet.
         """
-        project = self.initial_data.get('project')
-        if not project:
-            raise serializers.ValidationError("Le projet est requis.")
-        project_instance = Project.objects.get(id=project)
-        if value and value not in project_instance.contributors.all():
+        request = self.context['request']
+        project_id = self.context['view'].kwargs.get('project_id')
+        project = get_object_or_404(Project, id=project_id)
+
+        if value and not Contributor.objects.filter(project=project, user=value).exists():
             raise serializers.ValidationError("L'utilisateur assigné doit être un contributeur du projet.")
         return value
 
