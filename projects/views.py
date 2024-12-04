@@ -1,23 +1,74 @@
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
 from .models import Project, Contributor
 from .serializers import ProjectSerializer, ContributorSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from projects.permissions import IsProjectAuthor, IsContributor
+from django.db.models import Q
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
-    permission_classes = [IsAuthenticated]  # Authentification requise
 
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsProjectAuthor()]
+        return [IsContributor()]
+    
     def get_queryset(self):
-    # Restreint les projets visibles aux projets de l'utilisateur connecté
-        return Project.objects.filter(author=self.request.user)
+        user = self.request.user
+        return Project.objects.filter(
+            Q(author=user) | Q(contributors__user=user)
+        ).distinct()
 
 class ContributorViewSet(viewsets.ModelViewSet):
-    queryset = Contributor.objects.all()
     serializer_class = ContributorSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsProjectAuthor()]
+        return [IsContributor()]
 
     def get_queryset(self):
-        # Filtre les contributeurs pour afficher seulement ceux des projets où l'utilisateur est contributeur
-        return Contributor.objects.filter(project__contributors__user=self.request.user)
+        """
+        Filtrer les contributeurs par projet.
+        """
+        project_id = self.kwargs.get('project_id')
+        return Contributor.objects.filter(project_id=project_id)
+
+    def perform_create(self, serializer):
+        """
+        Vérifier que l'utilisateur est l'auteur du projet avant d'ajouter un contributeur.
+        """
+        project_id = self.kwargs.get('project_id')
+        project = Project.objects.get(pk=project_id)
+
+        if self.request.user != project.author:
+            raise PermissionDenied("Vous n'êtes pas autorisé à ajouter des contributeurs à ce projet.")
+
+        serializer.save(project=project)
+
+    def perform_update(self, serializer):
+        """
+        Vérifier que l'utilisateur est l'auteur du projet avant de modifier un contributeur.
+        """
+        project_id = self.kwargs.get('project_id')
+        project = Project.objects.get(pk=project_id)
+
+        if self.request.user != project.author:
+            raise PermissionDenied("Vous n'êtes pas autorisé à modifier les contributeurs de ce projet.")
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """
+        Vérifier que l'utilisateur est l'auteur du projet avant de supprimer un contributeur.
+        """
+        project_id = self.kwargs.get('project_id')
+        project = Project.objects.get(pk=project_id)
+
+        if self.request.user != project.author:
+            raise PermissionDenied("Vous n'êtes pas autorisé à supprimer des contributeurs de ce projet.")
+
+        instance.delete()
