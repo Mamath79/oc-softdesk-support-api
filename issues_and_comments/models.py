@@ -1,6 +1,7 @@
 from django.db import models
 from projects.models import Project
 from users.models import User
+import uuid
 
 
 class Issue(models.Model):
@@ -43,6 +44,7 @@ class Issue(models.Model):
 
 
 class Comment(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)  # Ajout de l'UUID
     content = models.TextField()
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='comments')  # Lien avec une issue
     author_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')  # Auteur du commentaire

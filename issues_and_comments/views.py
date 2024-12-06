@@ -1,52 +1,56 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from issues_and_comments.permissons import IsIssueAuthorOrContributor, IsCommentAuthorOrReadOnly
 from issues_and_comments.models import Issue, Comment
 from issues_and_comments.serializers import IssueSerializer, CommentSerializer
-from projects.models import Project, Contributor
+from projects.models import Project
+from django.db.models import Q
 
 
 class IssueViewSet(viewsets.ModelViewSet):
     serializer_class = IssueSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsIssueAuthorOrContributor]
 
     def get_queryset(self):
+        """
+        Retourne toutes les issues du projet pour les contributeurs et l'auteur.
+        """
         project_id = self.kwargs.get('project_id')
+        user = self.request.user
 
-        # Filtrer sur les contributeurs et l'auteur directement
         return Issue.objects.filter(
-            project_id=project_id,
-            project__contributors__user=self.request.user
-        ) | Issue.objects.filter(
-            project_id=project_id,
-            project__author=self.request.user
-        )
+            Q(project_id=project_id) & (
+                Q(project__contributors__user=user) |
+                Q(project__author=user)
+            )
+        ).distinct()
 
     def perform_create(self, serializer):
         """
-        Lors de la création d'une issue, associe automatiquement le projet.
+        Associe automatiquement le projet et l'auteur lors de la création.
         """
         project_id = self.kwargs.get('project_id')
-        project = Project.objects.get(id=project_id)
+        project = Project.objects.get(pk=project_id)
         serializer.save(project=project, author_user=self.request.user)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
-    """
-    Gère les opérations CRUD pour les commentaires.
-    """
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCommentAuthorOrReadOnly]
 
     def get_queryset(self):
         """
-        Limite les commentaires visibles aux issues accessibles par l'utilisateur connecté.
+        Retourne tous les commentaires liés à une issue spécifique visible pour l'utilisateur.
         """
         user = self.request.user
+        issue_id = self.kwargs.get('issue_id')  # Contexte de l'issue
+
         return Comment.objects.filter(
-            issue__project__contributors__user=user
-        ) | Comment.objects.filter(
-            issue__project__author=user
-        )
+            Q(issue_id=issue_id) & (
+                Q(issue__project__contributors__user=user) |
+                Q(issue__project__author=user)
+            )
+        ).distinct()
 
     def perform_create(self, serializer):
         """
