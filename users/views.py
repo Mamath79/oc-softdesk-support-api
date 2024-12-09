@@ -2,23 +2,24 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.exceptions import ValidationError
 from users.models import User
 from users.serializers import UserSerializer
-from rest_framework.permissions import AllowAny
 from users.permissions import IsSelfOrAdmin
 
 
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    
 
     def get_permissions(self):
+        if self.action == 'create':  # Restreindre la création d'utilisateurs
+            return [IsAdminUser()]  # Seuls les administrateurs peuvent utiliser POST sur /api/users/
         if self.action in ['destroy', 'update', 'partial_update']:
-            return [IsSelfOrAdmin()]
-        return [IsAuthenticated()]
-    
+            return [IsSelfOrAdmin()]  # Restriction pour les actions sensibles
+        return [IsAuthenticated()]  # Par défaut, authentification requise pour les autres actions
+
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         partial = kwargs.pop('partial', False)
@@ -40,8 +41,8 @@ class UserViewSet(ModelViewSet):
 
 
 class RegisterView(APIView):
-    permission_classes = [AllowAny]
-    
+    permission_classes = [AllowAny]  # Accessible à tous
+
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():

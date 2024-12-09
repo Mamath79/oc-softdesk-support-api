@@ -1,25 +1,32 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from issues_and_comments.permissons import IsIssueAuthorOrContributor, IsCommentAuthorOrReadOnly
+from rest_framework.exceptions import PermissionDenied
+from issues_and_comments.permissions import IsIssueAuthorOrContributor, CanChangeStatus, IsCommentAuthorOrReadOnly
 from issues_and_comments.models import Issue, Comment
 from issues_and_comments.serializers import IssueSerializer, CommentSerializer
-from projects.models import Project
 from django.db.models import Q
+from projects.models import Project
 
 
 class IssueViewSet(viewsets.ModelViewSet):
     serializer_class = IssueSerializer
-    permission_classes = [IsAuthenticated, IsIssueAuthorOrContributor]
+
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update']:
+            # Combine les permissions pour permettre uniquement certaines actions
+            return [IsIssueAuthorOrContributor(), CanChangeStatus()]
+        return [IsIssueAuthorOrContributor()]
 
     def get_queryset(self):
         """
-        Retourne toutes les issues du projet pour les contributeurs et l'auteur.
+        Limite les issues accessibles aux projets où l'utilisateur est contributeur ou auteur.
         """
         project_id = self.kwargs.get('project_id')
         user = self.request.user
 
         return Issue.objects.filter(
-            Q(project_id=project_id) & (
+            Q(project_id=project_id) &
+            (
                 Q(project__contributors__user=user) |
                 Q(project__author=user)
             )
@@ -27,11 +34,26 @@ class IssueViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Associe automatiquement le projet et l'auteur lors de la création.
+        Associe automatiquement le projet et l'auteur lors de la création d'une issue.
         """
         project_id = self.kwargs.get('project_id')
         project = Project.objects.get(pk=project_id)
         serializer.save(project=project, author_user=self.request.user)
+
+    def perform_update(self, serializer):
+        """
+        Permet uniquement aux auteurs ou aux contributeurs assignés de mettre à jour l'issue.
+        Les contributeurs peuvent modifier uniquement le statut.
+        """
+        issue = self.get_object()
+        if issue.assigned_contributor == self.request.user and 'status' in self.request.data:
+            # Mise à jour autorisée pour le statut uniquement
+            serializer.save()
+        elif issue.author_user == self.request.user:
+            # Mise à jour complète autorisée pour l'auteur
+            serializer.save()
+        else:
+            raise PermissionDenied("Vous n'êtes pas autorisé à modifier cette issue.")
 
 
 class CommentViewSet(viewsets.ModelViewSet):

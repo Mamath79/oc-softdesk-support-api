@@ -22,7 +22,7 @@ Suivez les étapes ci-dessous pour installer et exécuter le projet en local.
 1. **Cloner le dépôt**
    Clonez le dépôt GitHub sur votre machine locale :
    ```bash
-   git clone <URL_DU_DEPOT>
+   git clone https://github.com/Mamath79/OC_P10_Creez-une-API-securisee-RESTful-en-utilisant-Django-REST.git
    cd Soft_desk_support
    ```
 
